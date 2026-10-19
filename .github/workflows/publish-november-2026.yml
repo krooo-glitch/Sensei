@@ -1,0 +1,57 @@
+name: Publish November 2026 Sensei message
+
+on:
+  schedule:
+    # 2026-11-01 08:00 JST is 2026-10-31 23:00 UTC.
+    - cron: "0 23 31 10 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the public message feed
+        uses: actions/checkout@v4
+
+      - name: Confirm the one-time publication date
+        id: date_guard
+        shell: bash
+        run: |
+          if [ "$(TZ=Asia/Tokyo date +%F)" = "2026-11-01" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "This workflow only publishes on 2026-11-01 JST."
+          fi
+
+      - name: Publish the November message
+        if: steps.date_guard.outputs.publish == 'true'
+        shell: bash
+        run: |
+          cp scheduled/2026-11.json Sensei/monkly_messages.json
+          python3 - <<'PY'
+          import json
+          with open("Sensei/monkly_messages.json", encoding="utf-8") as f:
+              messages = json.load(f)
+          assert len(messages) == 1
+          assert messages[0]["id"] == "2026-11"
+          assert messages[0]["signoff"] == "Koji"
+          print("JSON validation passed.")
+          PY
+
+      - name: Commit and push the published message
+        if: steps.date_guard.outputs.publish == 'true'
+        shell: bash
+        run: |
+          if git diff --quiet -- Sensei/monkly_messages.json; then
+            echo "November message is already published."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Sensei/monkly_messages.json
+          git commit -m "Publish November 2026 Sensei message"
+          git push
