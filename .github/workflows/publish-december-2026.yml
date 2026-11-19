@@ -1,0 +1,33 @@
+name: Publish December 2026 Sensei message
+
+on:
+  schedule:
+    # UTC: Nov 30 23:00 = Dec 1 08:00 in Japan. Retry at 08:30 JST.
+    - cron: "0,30 23 30 11 *"
+    # Retry at 09:30, 10:30, and 11:30 JST, without duplicate commits.
+    - cron: "30 0,1,2 1 12 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sensei-december-2026-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the public message feed
+        uses: actions/checkout@v4
+      - name: Publish only during the approved date and time
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 scripts/publish_december_2026.py --dry-run
+          else
+            python3 scripts/publish_december_2026.py
+          fi
