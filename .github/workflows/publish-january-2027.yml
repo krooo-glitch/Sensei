@@ -1,0 +1,34 @@
+name: Publish January 2027 Sensei message
+
+on:
+  schedule:
+    # UTC: Dec 31 23:00 = Jan 1 08:00 JST. Retry at 08:30 JST.
+    - cron: "0,30 23 31 12 *"
+    # Retry on Jan 1 at 09:30, 10:30, and 11:30 JST.
+    - cron: "30 0,1,2 1 1 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sensei-january-2027-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the public message feed
+        uses: actions/checkout@v4
+      - name: Publish only during the approved date and time
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            # Test the full payload with the approved future time, without writing.
+            python3 scripts/publish_january_2027.py --dry-run --now '2027-01-01T08:00:00+09:00'
+          else
+            python3 scripts/publish_january_2027.py
+          fi
